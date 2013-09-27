@@ -19,11 +19,11 @@ package org.nmrml.converter;
 
 
 
+import org.nmrml.cv.UOParams;
 import org.nmrml.model.Acquisition1DType;
 import org.nmrml.model.AcquisitionDimensionParameterSetType;
 import org.nmrml.model.AcquisitionType;
-import org.nmrml.model.ContactType;
-import org.nmrml.model.UnitsNames;
+import org.nmrml.model.ObjectFactory;
 import org.nmrml.model.ValueWithUnitType;
 
 import java.io.BufferedReader;
@@ -46,6 +46,7 @@ import java.util.regex.Pattern;
 public class BrukerAcquAbstractReader implements AcquReader {
 
     private BufferedReader inputAcqReader;
+    private ObjectFactory objectFactory;
     private boolean is2D = false;
 
     // files for 2D nnmr
@@ -92,11 +93,13 @@ public class BrukerAcquAbstractReader implements AcquReader {
     private final static Pattern REGEXP_OWNER = Pattern.compile("\\#\\#\\$OWNER= (.+)"); // owner
 
     public BrukerAcquAbstractReader() {
+        objectFactory = new ObjectFactory();
     }
     
     public BrukerAcquAbstractReader(File acquFile) throws IOException {
 //        Path path = Paths.get(acquFile.getPath());
 //        is2D = REGEXP_ACQU2.matcher(path.toString()).find() || new File(path.getParent().toString()+"/acqu2").exists();
+        objectFactory = new ObjectFactory();
         inputAcqReader = new BufferedReader(new FileReader(acquFile));        
     }
 
@@ -111,7 +114,7 @@ public class BrukerAcquAbstractReader implements AcquReader {
 
     @Override
     public AcquisitionType read() throws IOException {
-        AcquisitionType acquisition = new AcquisitionType();
+        AcquisitionType acquisition = objectFactory.createAcquisitionType();
         acquisition.setAcquisition1D(readDirectDimension());
         return acquisition;
     }
@@ -119,7 +122,8 @@ public class BrukerAcquAbstractReader implements AcquReader {
 
     private Acquisition1DType readDirectDimension() throws IOException{
 
-        Acquisition1DType acquisition = new Acquisition1DType();
+        Acquisition1DType acquisition = objectFactory.createAcquisition1DType();
+        //TODO check if I can usd this instanciation
         Acquisition1DType.AcquisitionParameterSet parameterSet = new Acquisition1DType.AcquisitionParameterSet();
         parameterSet.setDirectDimensionParameterSet(readDimensionParameters());
         acquisition.setAcquisitionParameterSet(parameterSet);
@@ -134,26 +138,26 @@ public class BrukerAcquAbstractReader implements AcquReader {
 
         //TODO read contact details
         //contact parameters
-        String line = inputAcqReader.readLine();
-        ContactType contact = new ContactType();
-        if (REGEXP_ORIGIN.matcher(line).find()) {
-            matcher = REGEXP_ORIGIN.matcher(line);
-            matcher.find();
-            // probably not correct
-            contact.setOrganization(matcher.group(1));
-        }
-        if (REGEXP_OWNER.matcher(line).find()) {
-            matcher = REGEXP_OWNER.matcher(line);
-            matcher.find();
-            contact.setFullname(matcher.group(1));
-        }
+//        String line = inputAcqReader.readLine();
+//        ContactType contact = new ContactType();
+//        if (REGEXP_ORIGIN.matcher(line).find()) {
+//            matcher = REGEXP_ORIGIN.matcher(line);
+//            matcher.find();
+//            // probably not correct
+//            contact.setOrganization(matcher.group(1));
+//        }
+//        if (REGEXP_OWNER.matcher(line).find()) {
+//            matcher = REGEXP_OWNER.matcher(line);
+//            matcher.find();
+//            contact.setFullname(matcher.group(1));
+//        }
 
 
         return acquisition;
     }
 
     private AcquisitionDimensionParameterSetType readDimensionParameters() throws IOException {
-        AcquisitionDimensionParameterSetType parameterSet= new AcquisitionDimensionParameterSetType();
+        AcquisitionDimensionParameterSetType parameterSet= objectFactory.createAcquisitionDimensionParameterSetType();
         ValueWithUnitType value;
         Matcher matcher;
         String line = inputAcqReader.readLine();
@@ -161,38 +165,36 @@ public class BrukerAcquAbstractReader implements AcquReader {
             if (REGEXP_SW.matcher(line).find()) {
                 matcher = REGEXP_SW.matcher(line);
                 matcher.find();
-                value = new ValueWithUnitType();
+                value = objectFactory.createValueWithUnitType();
                 value.setValue(matcher.group(1));
-                value.setUnitName(UnitsNames.PPM.name());
+                value.setUnitName(UOParams.PPM.getDescription());
                 parameterSet.setSweepWidth(value);
             }
             if (REGEXP_SW_H.matcher(line).find()) {
                 matcher = REGEXP_SW_H.matcher(line);
                 matcher.find();
-                value = new ValueWithUnitType();
+                value = objectFactory.createValueWithUnitType();
                 value.setValue(matcher.group(1));
-                value.setUnitName(UnitsNames.HZ.name());
+                value.setUnitName(UOParams.HERTZ.getDescription());
                 parameterSet.setSweepWidth(value);
             }
             if (REGEXP_TD.matcher(line).find()) {
                 matcher = REGEXP_TD.matcher(line);
                 matcher.find();
-                value = new ValueWithUnitType();
+                value = objectFactory.createValueWithUnitType();
                 value.setValue(matcher.group(1));
-                value.setUnitName(UnitsNames.HZ.name());
+                value.setUnitName(UOParams.DIMENSIONLESS.getDescription());
                 parameterSet.setNumberOfDataPoints(BigInteger.valueOf(Long.parseLong(matcher.group(1))));
             }
-            if (REGEXP_TD.matcher(line).find()) {
-                matcher = REGEXP_TD.matcher(line);
-                matcher.find();
-                parameterSet.setNumberOfDataPoints(BigInteger.valueOf(Long.parseLong(matcher.group(1))));
-            }
+
             //TODO check if this only records the last nucleos
             if (REGEXP_NUC.matcher(line).find()) {
                 matcher = REGEXP_NUC.matcher(line);
                 matcher.find();
                 parameterSet.setAcquisitionNucleus(matcher.group(1));
             }
+            line = inputAcqReader.readLine();
+
         }
         return parameterSet;
     }
